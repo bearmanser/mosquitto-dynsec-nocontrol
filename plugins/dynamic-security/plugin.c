@@ -643,49 +643,51 @@ void dynsec__config_save(void)
 int mosquitto_plugin_init(mosquitto_plugin_id_t *identifier, void **user_data, struct mosquitto_opt *options, int option_count)
 {
 	int i;
-	int rc = MOSQ_ERR_SUCCESS;
+	int rc;
 
 	UNUSED(user_data);
 
-	for(i = 0; i < option_count; i++) {
-		if(!strcasecmp(options[i].key, "config_file")) {
+	for(i=0; i<option_count; i++){
+		if(!strcasecmp(options[i].key, "config_file")){
 			config_file = mosquitto_strdup(options[i].value);
-			if(config_file == NULL) {
+			if(config_file == NULL){
 				return MOSQ_ERR_NOMEM;
 			}
 			break;
 		}
 	}
-
-	if(config_file == NULL) {
+	if(config_file == NULL){
 		mosquitto_log_printf(MOSQ_LOG_WARNING, "Warning: Dynamic security plugin has no plugin_opt_config_file defined. The plugin will not be activated.");
 		return MOSQ_ERR_SUCCESS;
 	}
 
 	plg_id = identifier;
 
-	rc = dynsec__config_load();
-	if(rc != MOSQ_ERR_SUCCESS){
-		mosquitto_log_printf(MOSQ_LOG_ERR, "Error loading dynamic security config.");
-		goto error;
-	}
-
-	mosquitto_log_printf(MOSQ_LOG_INFO, "Dynamic security control interface disabled by hardening patch.");
+	dynsec__config_load();
 
 	rc = mosquitto_callback_register(plg_id, MOSQ_EVT_BASIC_AUTH, dynsec_auth__basic_auth_callback, NULL, NULL);
-	if(rc != MOSQ_ERR_SUCCESS){
-		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Failed to register basic auth callback.");
+	if(rc == MOSQ_ERR_ALREADY_EXISTS){
+		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Dynamic security plugin can only be loaded once.");
+		goto error;
+	}else if(rc == MOSQ_ERR_NOMEM){
+		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Out of memory.");
+		goto error;
+	}else if(rc != MOSQ_ERR_SUCCESS){
 		goto error;
 	}
 
 	rc = mosquitto_callback_register(plg_id, MOSQ_EVT_ACL_CHECK, dynsec__acl_check_callback, NULL, NULL);
-	if(rc != MOSQ_ERR_SUCCESS){
-		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Failed to register ACL check callback.");
+	if(rc == MOSQ_ERR_ALREADY_EXISTS){
+		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Dynamic security plugin can only be loaded once.");
+		goto error;
+	}else if(rc == MOSQ_ERR_NOMEM){
+		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Out of memory.");
+		goto error;
+	}else if(rc != MOSQ_ERR_SUCCESS){
 		goto error;
 	}
 
 	return MOSQ_ERR_SUCCESS;
-
 error:
 	mosquitto_free(config_file);
 	config_file = NULL;
@@ -699,7 +701,6 @@ int mosquitto_plugin_cleanup(void *user_data, struct mosquitto_opt *options, int
 	UNUSED(option_count);
 
 	if(plg_id){
-		mosquitto_callback_unregister(plg_id, MOSQ_EVT_CONTROL, dynsec_control_callback, "$CONTROL/dynamic-security/v1");
 		mosquitto_callback_unregister(plg_id, MOSQ_EVT_BASIC_AUTH, dynsec_auth__basic_auth_callback, NULL);
 		mosquitto_callback_unregister(plg_id, MOSQ_EVT_ACL_CHECK, dynsec__acl_check_callback, NULL);
 	}
