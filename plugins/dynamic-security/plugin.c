@@ -643,7 +643,7 @@ void dynsec__config_save(void)
 int mosquitto_plugin_init(mosquitto_plugin_id_t *identifier, void **user_data, struct mosquitto_opt *options, int option_count)
 {
 	int i;
-	int rc = MOSQ_ERR_SUCCESS;  // ✅ initialize rc here
+	int rc = MOSQ_ERR_SUCCESS;
 
 	UNUSED(user_data);
 
@@ -664,20 +664,25 @@ int mosquitto_plugin_init(mosquitto_plugin_id_t *identifier, void **user_data, s
 
 	plg_id = identifier;
 
-	dynsec__config_load();
-
-	rc = mosquitto_callback_register(plg_id, MOSQ_EVT_BASIC_AUTH, dynsec_auth__basic_auth_callback, NULL, NULL);
-	if(rc == MOSQ_ERR_ALREADY_EXISTS) {
-		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Dynamic security plugin can only be loaded once.");
-		goto error;
-	} else if(rc == MOSQ_ERR_NOMEM) {
-		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Out of memory.");
-		goto error;
-	} else if(rc != MOSQ_ERR_SUCCESS) {
+	rc = dynsec__config_load();
+	if(rc != MOSQ_ERR_SUCCESS){
+		mosquitto_log_printf(MOSQ_LOG_ERR, "Error loading dynamic security config.");
 		goto error;
 	}
 
 	mosquitto_log_printf(MOSQ_LOG_INFO, "Dynamic security control interface disabled by hardening patch.");
+
+	rc = mosquitto_callback_register(plg_id, MOSQ_EVT_BASIC_AUTH, dynsec_auth__basic_auth_callback, NULL, NULL);
+	if(rc != MOSQ_ERR_SUCCESS){
+		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Failed to register basic auth callback.");
+		goto error;
+	}
+
+	rc = mosquitto_callback_register(plg_id, MOSQ_EVT_ACL_CHECK, dynsec__acl_check_callback, NULL, NULL);
+	if(rc != MOSQ_ERR_SUCCESS){
+		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Failed to register ACL check callback.");
+		goto error;
+	}
 
 	return MOSQ_ERR_SUCCESS;
 
