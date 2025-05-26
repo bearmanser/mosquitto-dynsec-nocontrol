@@ -643,7 +643,7 @@ void dynsec__config_save(void)
 int mosquitto_plugin_init(mosquitto_plugin_id_t *identifier, void **user_data, struct mosquitto_opt *options, int option_count)
 {
 	int i;
-	int rc;
+	int rc = MOSQ_ERR_SUCCESS;
 
 	UNUSED(user_data);
 
