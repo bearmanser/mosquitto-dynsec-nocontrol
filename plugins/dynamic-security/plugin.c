@@ -665,8 +665,6 @@ int mosquitto_plugin_init(mosquitto_plugin_id_t *identifier, void **user_data, s
 
 	dynsec__config_load();
 
-	mosquitto_log_printf(MOSQ_LOG_INFO, "Dynamic security control interface disabled by hardening patch.");
-
 	if(rc == MOSQ_ERR_ALREADY_EXISTS){
 		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Dynamic security plugin can currently only be loaded once.");
 		mosquitto_log_printf(MOSQ_LOG_ERR, "Note that this was previously incorrectly allowed but could cause problems with duplicate entries in the config.");
@@ -689,16 +687,7 @@ int mosquitto_plugin_init(mosquitto_plugin_id_t *identifier, void **user_data, s
 		goto error;
 	}
 
-	rc = mosquitto_callback_register(plg_id, MOSQ_EVT_ACL_CHECK, dynsec__acl_check_callback, NULL, NULL);
-	if(rc == MOSQ_ERR_ALREADY_EXISTS){
-		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Dynamic security plugin can only be loaded once.");
-		goto error;
-	}else if(rc == MOSQ_ERR_NOMEM){
-		mosquitto_log_printf(MOSQ_LOG_ERR, "Error: Out of memory.");
-		goto error;
-	}else if(rc != MOSQ_ERR_SUCCESS){
-		goto error;
-	}
+	mosquitto_log_printf(MOSQ_LOG_INFO, "Dynamic security control interface disabled by hardening patch.");
 
 	return MOSQ_ERR_SUCCESS;
 error:
